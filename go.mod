@@ -169,6 +169,7 @@ require (
 	github.com/sagernet/cronet-go/lib/tvos_arm64_simulator v0.0.0-20260912104006-c10c03c318db // indirect
 	github.com/sagernet/cronet-go/lib/windows_amd64 v0.0.0-20260912104006-c10c03c318db // indirect
 	github.com/sagernet/cronet-go/lib/windows_arm64 v0.0.0-20260912104006-c10c03c318db // indirect
+	github.com/scdhh/go-zt v0.0.0-20260717171120-b80d38ba2346
 	github.com/smallstep/pkcs7 v0.1.1 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/tailscale/certstore v0.1.1-0.20260409135935-3638fb84b77d // indirect
@@ -198,3 +199,5 @@ require (
 	lukechampine.com/blake3 v1.3.0 // indirect
 	zombiezen.com/go/capnproto2 v2.18.2+incompatible // indirect
 )
+
+replace github.com/scdhh/go-zt v0.0.0-20260717171120-b80d38ba2346 => github.com/shoucandanghehe/go-zt v0.0.0-20260717171120-b80d38ba2346
