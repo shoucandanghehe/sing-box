@@ -183,9 +183,24 @@ Enable UDP fragmentation.
 
 Set domain resolver to use for resolving domain names.
 
-This option uses the same format as the [route DNS rule action](/configuration/dns/rule_action/#route) without the `action` field.
+Use `server` to select a fixed DNS server, bypassing DNS rules. Setting this option directly to a string is equivalent to setting `server`.
 
-Setting this option directly to a string is equivalent to setting `server` of this options.
+This fork also supports the opt-in `fallback_server` extension: run DNS rules first and replace only the default server when no rule selects a server.
+
+```json
+{
+  "domain_resolver": {
+    "fallback_server": "local",
+    "strategy": "prefer_ipv4"
+  }
+}
+```
+
+`server` and `fallback_server` are mutually exclusive and must reference an existing DNS server. Both forms support `timeout`, `strategy`, `disable_cache`, `disable_optimistic_cache`, `rewrite_ttl` and `client_subnet`.
+
+An explicit resolver on an outbound or endpoint, whether fixed or fallback, overrides `route.default_domain_resolver`. A selector uses the selected member's resolver. Internal domain lookups still skip FakeIP rules.
+
+`fallback_server` is not a retry server: matching reject, predefined, evaluate/respond and route actions retain their normal behavior, including errors. When used to resolve a DNS server's own address, the referenced server is also a startup dependency; ensure DNS rules do not route that bootstrap lookup back to the server being resolved.
 
 | Outbound/Endpoints | Effected domains         |
 |--------------------|--------------------------|

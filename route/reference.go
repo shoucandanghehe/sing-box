@@ -67,10 +67,10 @@ func appendDomainResolver(transports []string, rawOptions any) []string {
 		return transports
 	}
 	dialerOptions := dialerOptionsWrapper.TakeDialerOptions()
-	if dialerOptions.DomainResolver == nil || dialerOptions.DomainResolver.Server == "" {
+	if dialerOptions.DomainResolver == nil || dialerOptions.DomainResolver.ServerTag() == "" {
 		return transports
 	}
-	return append(transports, dialerOptions.DomainResolver.Server)
+	return append(transports, dialerOptions.DomainResolver.ServerTag())
 }
 
 func (m *ReferenceManager) Name() string {
@@ -130,7 +130,8 @@ func (m *ReferenceManager) update() {
 			transportQueue = append(transportQueue, defaultTransport.Tag())
 		}
 	}
-	transportQueue = append(transportQueue, networkManager.DefaultOptions().DomainResolver)
+	defaultOptions := networkManager.DefaultOptions()
+	transportQueue = append(transportQueue, defaultOptions.DomainResolver, defaultOptions.DomainFallbackResolver)
 	if !collectRuleReferences(m.rules, mode, &outboundQueue, &transportQueue) {
 		defaultOutbound := outboundManager.Default()
 		if defaultOutbound != nil {

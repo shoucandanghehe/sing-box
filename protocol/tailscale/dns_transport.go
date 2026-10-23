@@ -203,9 +203,9 @@ func (t *DNSTransport) createResolver(resolverScope *adapter.Scope, directDialer
 		if err != nil {
 			return nil, err
 		}
-		myDialer = dialer.NewResolveDialer(t.ctx, myDialer, false, "", adapter.DNSQueryOptions{Transport: bootstrapTransport}, 0)
+		myDialer = dialer.NewResolveDialer(t.ctx, myDialer, false, nil, adapter.DNSQueryOptions{Transport: bootstrapTransport}, 0)
 	} else {
-		myDialer = dialer.NewResolveDialer(t.ctx, myDialer, false, "", t.endpoint.queryOptions, 0)
+		myDialer = dialer.NewResolveDialer(t.ctx, myDialer, false, nil, t.endpoint.queryOptions, 0)
 	}
 	if isHTTPScheme {
 		if serverURL.Hostname() == "" {

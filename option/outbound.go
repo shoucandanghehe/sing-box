@@ -112,7 +112,8 @@ type AbstractDialerOptions struct {
 }
 
 type _DomainResolveOptions struct {
-	Server                 string                `json:"server" reference:"dns_server"`
+	Server                 string                `json:"server,omitempty" reference:"dns_server"`
+	FallbackServer         string                `json:"fallback_server,omitempty" reference:"dns_server"`
 	Timeout                badoption.Duration    `json:"timeout,omitempty"`
 	Strategy               DomainStrategy        `json:"strategy,omitempty"`
 	DisableCache           bool                  `json:"disable_cache,omitempty"`
@@ -123,10 +124,27 @@ type _DomainResolveOptions struct {
 
 type DomainResolveOptions _DomainResolveOptions
 
+func (o DomainResolveOptions) ServerTag() string {
+	if o.Server != "" {
+		return o.Server
+	}
+	return o.FallbackServer
+}
+
+func (o DomainResolveOptions) Validate() error {
+	if o.Server != "" && o.FallbackServer != "" {
+		return E.New("domain_resolver.server and domain_resolver.fallback_server are mutually exclusive")
+	}
+	return nil
+}
+
 func (o DomainResolveOptions) MarshalJSON() ([]byte, error) {
-	if o.Server == "" {
+	if err := o.Validate(); err != nil {
+		return nil, err
+	}
+	if o.ServerTag() == "" {
 		return []byte("{}"), nil
-	} else if o.Strategy == DomainStrategy(C.DomainStrategyAsIS) &&
+	} else if o.FallbackServer == "" && o.Strategy == DomainStrategy(C.DomainStrategyAsIS) &&
 		o.Timeout == 0 &&
 		!o.DisableCache &&
 		!o.DisableOptimisticCache &&
@@ -142,17 +160,27 @@ func (o *DomainResolveOptions) UnmarshalJSON(bytes []byte) error {
 	var stringValue string
 	err := json.Unmarshal(bytes, &stringValue)
 	if err == nil {
-		o.Server = stringValue
+		*o = DomainResolveOptions{Server: stringValue}
 		return nil
+	}
+	var fields struct {
+		Server         json.RawMessage `json:"server"`
+		FallbackServer json.RawMessage `json:"fallback_server"`
+	}
+	if err = json.Unmarshal(bytes, &fields); err != nil {
+		return err
+	}
+	if fields.Server != nil && fields.FallbackServer != nil {
+		return E.New("domain_resolver.server and domain_resolver.fallback_server are mutually exclusive")
 	}
 	err = json.Unmarshal(bytes, (*_DomainResolveOptions)(o))
 	if err != nil {
 		return err
 	}
-	if o.Server == "" {
-		return E.New("empty domain_resolver.server")
+	if o.ServerTag() == "" {
+		return E.New("empty domain_resolver.server or domain_resolver.fallback_server")
 	}
-	return nil
+	return o.Validate()
 }
 
 func (o DomainResolveOptions) DescribeSchema(builder schema.Builder) (*schema.Node, error) {
@@ -162,7 +190,10 @@ func (o DomainResolveOptions) DescribeSchema(builder schema.Builder) (*schema.No
 		if err != nil {
 			return nil, err
 		}
-		objectForm.Required = []string{"server"}
+		objectForm.OneOf = []*schema.Node{
+			{Required: []string{"server"}},
+			{Required: []string{"fallback_server"}},
+		}
 		return schema.AnyOf(schema.TagReferenceNode("dns_server"), objectForm), nil
 	})
 }

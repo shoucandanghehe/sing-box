@@ -33,6 +33,7 @@ type DNSClient interface {
 
 type DNSQueryOptions struct {
 	Transport              DNSTransport
+	FallbackTransport      DNSTransport
 	Strategy               C.DomainStrategy
 	LookupStrategy         C.DomainStrategy
 	DisableCache           bool

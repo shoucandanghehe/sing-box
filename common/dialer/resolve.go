@@ -9,6 +9,7 @@ import (
 	"github.com/sagernet/sing-box/adapter"
 	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/log"
+	"github.com/sagernet/sing-box/option"
 	"github.com/sagernet/sing/common/bufio"
 	E "github.com/sagernet/sing/common/exceptions"
 	M "github.com/sagernet/sing/common/metadata"
@@ -32,40 +33,40 @@ type ParallelInterfaceResolveDialer interface {
 }
 
 type resolveDialer struct {
-	transport     adapter.DNSTransportManager
-	router        adapter.DNSRouter
-	dialer        N.Dialer
-	parallel      bool
-	server        string
-	initOnce      sync.Once
-	initErr       error
-	queryOptions  adapter.DNSQueryOptions
-	fallbackDelay time.Duration
+	transport      adapter.DNSTransportManager
+	router         adapter.DNSRouter
+	dialer         N.Dialer
+	parallel       bool
+	domainResolver *option.DomainResolveOptions
+	initOnce       sync.Once
+	initErr        error
+	queryOptions   adapter.DNSQueryOptions
+	fallbackDelay  time.Duration
 }
 
-func NewResolveDialer(ctx context.Context, dialer N.Dialer, parallel bool, server string, queryOptions adapter.DNSQueryOptions, fallbackDelay time.Duration) ResolveDialer {
+func NewResolveDialer(ctx context.Context, dialer N.Dialer, parallel bool, domainResolver *option.DomainResolveOptions, queryOptions adapter.DNSQueryOptions, fallbackDelay time.Duration) ResolveDialer {
 	if parallelDialer, isParallel := dialer.(ParallelInterfaceDialer); isParallel {
 		return &resolveParallelNetworkDialer{
 			resolveDialer{
-				transport:     service.FromContext[adapter.DNSTransportManager](ctx),
-				router:        service.FromContext[adapter.DNSRouter](ctx),
-				dialer:        dialer,
-				parallel:      parallel,
-				server:        server,
-				queryOptions:  queryOptions,
-				fallbackDelay: fallbackDelay,
+				transport:      service.FromContext[adapter.DNSTransportManager](ctx),
+				router:         service.FromContext[adapter.DNSRouter](ctx),
+				dialer:         dialer,
+				parallel:       parallel,
+				domainResolver: domainResolver,
+				queryOptions:   queryOptions,
+				fallbackDelay:  fallbackDelay,
 			},
 			parallelDialer,
 		}
 	}
 	return &resolveDialer{
-		transport:     service.FromContext[adapter.DNSTransportManager](ctx),
-		router:        service.FromContext[adapter.DNSRouter](ctx),
-		dialer:        dialer,
-		parallel:      parallel,
-		server:        server,
-		queryOptions:  queryOptions,
-		fallbackDelay: fallbackDelay,
+		transport:      service.FromContext[adapter.DNSTransportManager](ctx),
+		router:         service.FromContext[adapter.DNSRouter](ctx),
+		dialer:         dialer,
+		parallel:       parallel,
+		domainResolver: domainResolver,
+		queryOptions:   queryOptions,
+		fallbackDelay:  fallbackDelay,
 	}
 }
 
@@ -80,15 +81,19 @@ func (d *resolveDialer) initialize() error {
 }
 
 func (d *resolveDialer) initServer() {
-	if d.server == "" {
+	if d.domainResolver == nil || d.domainResolver.ServerTag() == "" {
 		return
 	}
-	transport, loaded := d.transport.Transport(d.server)
+	transport, loaded := d.transport.Transport(d.domainResolver.ServerTag())
 	if !loaded {
-		d.initErr = E.New("domain resolver not found: " + d.server)
+		d.initErr = E.New("domain resolver not found: " + d.domainResolver.ServerTag())
 		return
 	}
-	d.queryOptions.Transport = transport
+	if d.domainResolver.FallbackServer != "" {
+		d.queryOptions.FallbackTransport = transport
+	} else {
+		d.queryOptions.Transport = transport
+	}
 }
 
 func (d *resolveDialer) DialContext(ctx context.Context, network string, destination M.Socksaddr) (net.Conn, error) {

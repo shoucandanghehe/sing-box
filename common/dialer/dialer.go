@@ -39,6 +39,17 @@ func New(ctx context.Context, options option.DialerOptions, remoteIsDomain bool)
 
 func NewWithOptions(options Options) (N.Dialer, error) {
 	dialOptions := options.Options
+	if dialOptions.DomainResolver != nil {
+		if err := dialOptions.DomainResolver.Validate(); err != nil {
+			return nil, err
+		}
+		if !options.DirectResolver && !options.RemoteIsDomain && dialOptions.DomainResolver.FallbackServer != "" {
+			dnsTransport := service.FromContext[adapter.DNSTransportManager](options.Context)
+			if _, loaded := dnsTransport.Transport(dialOptions.DomainResolver.FallbackServer); !loaded {
+				return nil, E.New("domain resolver not found: ", dialOptions.DomainResolver.FallbackServer)
+			}
+		}
+	}
 	var (
 		dialer N.Dialer
 		err    error
@@ -62,12 +73,9 @@ func NewWithOptions(options Options) (N.Dialer, error) {
 			return nil, err
 		}
 	}
-	if options.RemoteIsDomain && (!hasDetour || options.ResolverOnDetour || dialOptions.DomainResolver != nil && dialOptions.DomainResolver.Server != "") {
-		var (
-			server          string
-			dnsQueryOptions adapter.DNSQueryOptions
-		)
-		hasDomainResolver := dialOptions.DomainResolver != nil && dialOptions.DomainResolver.Server != ""
+	hasDomainResolver := dialOptions.DomainResolver != nil && dialOptions.DomainResolver.ServerTag() != ""
+	if options.RemoteIsDomain && (!hasDetour || options.ResolverOnDetour || hasDomainResolver) {
+		var dnsQueryOptions adapter.DNSQueryOptions
 		if options.DirectResolver {
 			if !hasDomainResolver {
 				return nil, E.New("missing domain resolver for domain server address")
@@ -78,9 +86,6 @@ func NewWithOptions(options Options) (N.Dialer, error) {
 			if err != nil {
 				return nil, err
 			}
-		}
-		if hasDomainResolver {
-			server = dialOptions.DomainResolver.Server
 		}
 		if
 		//nolint:staticcheck
@@ -93,7 +98,7 @@ func NewWithOptions(options Options) (N.Dialer, error) {
 			options.Context,
 			dialer,
 			dialOptions.Detour == "" && !dialOptions.TCPFastOpen,
-			server,
+			dialOptions.DomainResolver,
 			dnsQueryOptions,
 			time.Duration(dialOptions.FallbackDelay),
 		)
@@ -103,13 +108,22 @@ func NewWithOptions(options Options) (N.Dialer, error) {
 
 func NewDNSQueryOptions(ctx context.Context, domainResolver *option.DomainResolveOptions, newDialer bool) (adapter.DNSQueryOptions, error) {
 	dnsTransport := service.FromContext[adapter.DNSTransportManager](ctx)
-	if domainResolver != nil && domainResolver.Server != "" {
-		transport, loaded := dnsTransport.Transport(domainResolver.Server)
+	if domainResolver != nil {
+		if err := domainResolver.Validate(); err != nil {
+			return adapter.DNSQueryOptions{}, err
+		}
+	}
+	if domainResolver != nil && domainResolver.ServerTag() != "" {
+		transport, loaded := dnsTransport.Transport(domainResolver.ServerTag())
 		if !loaded {
-			return adapter.DNSQueryOptions{}, E.New("domain resolver not found: ", domainResolver.Server)
+			return adapter.DNSQueryOptions{}, E.New("domain resolver not found: ", domainResolver.ServerTag())
 		}
 		dnsQueryOptions := domainResolveQueryOptions(domainResolver)
-		dnsQueryOptions.Transport = transport
+		if domainResolver.FallbackServer != "" {
+			dnsQueryOptions.FallbackTransport = transport
+		} else {
+			dnsQueryOptions.Transport = transport
+		}
 		return dnsQueryOptions, nil
 	}
 	defaultOptions := service.FromContext[adapter.NetworkManager](ctx).DefaultOptions()
@@ -120,6 +134,15 @@ func NewDNSQueryOptions(ctx context.Context, domainResolver *option.DomainResolv
 		}
 		dnsQueryOptions := defaultOptions.DomainResolveOptions
 		dnsQueryOptions.Transport = transport
+		return dnsQueryOptions, nil
+	}
+	if defaultOptions.DomainFallbackResolver != "" {
+		transport, loaded := dnsTransport.Transport(defaultOptions.DomainFallbackResolver)
+		if !loaded {
+			return adapter.DNSQueryOptions{}, E.New("default domain resolver not found: ", defaultOptions.DomainFallbackResolver)
+		}
+		dnsQueryOptions := defaultOptions.DomainResolveOptions
+		dnsQueryOptions.FallbackTransport = transport
 		return dnsQueryOptions, nil
 	}
 	if len(dnsTransport.Transports()) < 2 {

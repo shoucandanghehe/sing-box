@@ -279,6 +279,25 @@ func New(options Options) (*Box, error) {
 			return nil, E.Cause(err, "initialize DNS server[", i, "]")
 		}
 	}
+	// Resolve fallback references after all DNS transports exist, including
+	// forward references used for bootstrapping a DNS server's own address.
+	for i, transportOptions := range dnsOptions.Servers {
+		wrapper, isDialerOptions := transportOptions.Options.(option.DialerOptionsWrapper)
+		if !isDialerOptions {
+			continue
+		}
+		resolver := wrapper.TakeDialerOptions().DomainResolver
+		if resolver != nil && resolver.FallbackServer != "" {
+			if _, loaded := dnsTransportManager.Transport(resolver.FallbackServer); !loaded {
+				return nil, E.New("initialize DNS server[", i, "]: domain resolver not found: ", resolver.FallbackServer)
+			}
+		}
+	}
+	if tag := networkManager.DefaultOptions().DomainFallbackResolver; tag != "" {
+		if _, loaded := dnsTransportManager.Transport(tag); !loaded {
+			return nil, E.New("default domain resolver not found: ", tag)
+		}
+	}
 	err = dnsRouter.Initialize(dnsOptions.Rules)
 	if err != nil {
 		return nil, E.Cause(err, "initialize dns router")

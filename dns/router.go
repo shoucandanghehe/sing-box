@@ -359,7 +359,10 @@ func (r *Router) matchDNS(ctx context.Context, rules []adapter.DNSRule, allowFak
 			}
 		}
 	}
-	transport := r.transport.Default()
+	transport := options.FallbackTransport
+	if transport == nil {
+		transport = r.transport.Default()
+	}
 	return transport, nil, -1
 }
 
@@ -759,7 +762,11 @@ func (r *Router) walkDNSRules(ctx context.Context, rules []adapter.DNSRule, mess
 	if len(state.armedRules) > 0 {
 		return exchangeWithRulesResult{}, &dnsWalkSuspension{drain: true}
 	}
-	return exchangeWithRulesResult{}, &dnsWalkSuspension{pending: &dnsPendingExchange{transport: r.transport.Default(), options: state.effectiveOptions}}
+	transport := state.effectiveOptions.FallbackTransport
+	if transport == nil {
+		transport = r.transport.Default()
+	}
+	return exchangeWithRulesResult{}, &dnsWalkSuspension{pending: &dnsPendingExchange{transport: transport, options: state.effectiveOptions}}
 }
 
 func (r *Router) exchangeWithRules(ctx context.Context, rules []adapter.DNSRule, message *mDNS.Msg, options adapter.DNSQueryOptions, allowFakeIP bool) exchangeWithRulesResult {

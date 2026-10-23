@@ -181,9 +181,24 @@ TCP keep alive 间隔。
 
 用于设置解析域名的域名解析器。
 
-此选项的格式与 [路由 DNS 规则动作](/zh/configuration/dns/rule_action/#route) 相同，但不包含 `action` 字段。  
+使用 `server` 固定选择一个 DNS 服务器，绕过 DNS 规则。直接设置为字符串等同于设置 `server`。
 
-若直接将此选项设置为字符串，则等同于设置该选项的 `server` 字段。
+本分支还提供可选的 `fallback_server` 扩展：先执行 DNS 规则，仅在没有规则选择服务器时替换默认服务器。
+
+```json
+{
+  "domain_resolver": {
+    "fallback_server": "local",
+    "strategy": "prefer_ipv4"
+  }
+}
+```
+
+`server` 与 `fallback_server` 互斥，且必须引用已存在的 DNS 服务器。两种形式均支持 `timeout`、`strategy`、`disable_cache`、`disable_optimistic_cache`、`rewrite_ttl` 和 `client_subnet`。
+
+出站或端点显式配置的固定或回退解析器均优先于 `route.default_domain_resolver`。选择器使用被选中成员自身的解析器。内部域名解析仍会跳过 FakeIP 规则。
+
+`fallback_server` 不是失败重试服务器：匹配的拒绝、预定义响应、evaluate/respond 和 route 动作保留原有行为，包括错误。用于解析 DNS 服务器自身地址时，引用的服务器也是启动依赖；应确保 DNS 规则不会把该引导查询路由回正在解析的服务器。
 
 | 出站/端点       | 受影响的域名                |
 |----------------|---------------------------|
