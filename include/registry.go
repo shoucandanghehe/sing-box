@@ -114,6 +114,7 @@ func EndpointRegistry() *endpoint.Registry {
 	registerOpenConnectEndpoint(registry)
 	registerOpenVPNEndpoints(registry)
 	registerTailscaleEndpoint(registry)
+	registerZeroTierEndpoint(registry)
 
 	return registry
 }
