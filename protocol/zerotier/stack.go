@@ -5,7 +5,6 @@ package zerotier
 import (
 	"context"
 	"net"
-	"time"
 
 	"github.com/sagernet/gvisor/pkg/tcpip"
 	"github.com/sagernet/gvisor/pkg/tcpip/adapters/gonet"
@@ -197,10 +196,6 @@ func dialTCPWithBind(ctx context.Context, s *stack.Stack, localAddr, remoteAddr 
 			Err:  E.New(err.String()),
 		}
 	}
-	conn := gonet.NewTCPConn(&wq, ep)
-	go func() {
-		<-ctx.Done()
-		conn.SetDeadline(time.Now())
-	}()
-	return conn, nil
+	// The dial context ends with connect, not with the returned connection.
+	return gonet.NewTCPConn(&wq, ep), nil
 }

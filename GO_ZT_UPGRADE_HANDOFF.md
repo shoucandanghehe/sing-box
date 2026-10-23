@@ -5,7 +5,7 @@
 - 上游固定为 `v1.14.3`（`7054cac5124465ffdb145870d7c01885566711b1`），不跟随 `testing` 或未发布的稳定分支 HEAD。
 - go-zt 继续固定 `b80d38ba2346bb2bc51eed61f5babbe0f978965b`，通过现有远程 module replacement 获取，不引用本地工作区。
 - ZeroTier 接入新的 `Scope`、`JudgeFlow` 和 DNS packet 接口；UDP forwarder 必须显式启动，UDP/ICMP forwarder 在栈销毁前关闭。保留 Node 同步回调之外发送 ICMP 回复的边界。
-- Android 交付保持 API 34、`arm64-v8a`、Java package `libbox`、入口 `libbox.Libbox`、`jni/arm64-v8a/libbox.so`，以及 `with_gvisor,with_quic,with_clash_api,with_zerotier` 标签。
+- Android 交付保持 API 34、`arm64-v8a`、Java package `libbox`、入口 `libbox.Libbox`、`jni/arm64-v8a/libbox.so`；AAR 与 Linux CLI 同时启用 `with_gvisor,with_quic,with_clash_api,with_zerotier,with_utls`，保留节点的 uTLS fingerprint 配置。
 - 构建采用 `release/LDFLAGS` / `cmd/internal/build_shared.LinkerFlags` 的当前 linker 约定；不要沿用旧 GODEBUG 符号或省略 `-checklinkname=0`。
 - 最终产物位于独立的 `build/migration-v1.14.3-<源码短 SHA>/`，源码提交、完整构建命令、工具链和校验和以同目录 provenance 为准。根目录的 1.13.14 产物保留。
 
