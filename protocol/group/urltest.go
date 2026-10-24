@@ -479,13 +479,10 @@ func (b *urlTestBatch) test(outbounds []adapter.Outbound, link string, interval 
 						return nil, nil
 					}
 					b.logger.Debug("outbound ", tag, " unavailable: ", testResult.err)
-					b.history.DeleteURLTestHistory(tag)
+					b.history.StoreURLTestResult(tag, testResult.delay, testResult.err)
 				} else {
 					b.logger.Debug("outbound ", tag, " available: ", testResult.delay, "ms")
-					b.history.StoreURLTestHistory(tag, &adapter.URLTestHistory{
-						Time:  time.Now(),
-						Delay: testResult.delay,
-					})
+					b.history.StoreURLTestResult(tag, testResult.delay, nil)
 					b.access.Lock()
 					b.result[tag] = testResult.delay
 					b.access.Unlock()

@@ -229,14 +229,7 @@ func getProxyDelay(server *Server) func(w http.ResponseWriter, r *http.Request) 
 		delay, err := urltest.URLTest(ctx, url, proxy)
 		defer func() {
 			realTag := group.RealTag(server.outbound, proxy)
-			if err != nil {
-				server.urlTestHistory.DeleteURLTestHistory(realTag)
-			} else {
-				server.urlTestHistory.StoreURLTestHistory(realTag, &adapter.URLTestHistory{
-					Time:  time.Now(),
-					Delay: delay,
-				})
-			}
+			server.urlTestHistory.StoreURLTestResult(realTag, delay, err)
 			for _, detour := range server.outbound.Outbounds() {
 				urlTestGroup, isURLTestGroup := detour.(adapter.URLTestGroup)
 				if !isURLTestGroup {

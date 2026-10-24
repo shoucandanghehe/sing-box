@@ -20,15 +20,25 @@ import (
 	"github.com/sagernet/sing/common/observable"
 )
 
+type Result struct {
+	adapter.URLTestHistory
+	Error error
+}
+
+type historyEntry struct {
+	result      *Result
+	invalidated bool
+}
+
 type HistoryStorage struct {
-	access       sync.RWMutex
-	delayHistory map[string]*adapter.URLTestHistory
-	updateHooks  []*observable.Subscriber[struct{}]
+	access      sync.RWMutex
+	results     map[string]historyEntry
+	updateHooks []*observable.Subscriber[struct{}]
 }
 
 func NewHistoryStorage() *HistoryStorage {
 	return &HistoryStorage{
-		delayHistory: make(map[string]*adapter.URLTestHistory),
+		results: make(map[string]historyEntry),
 	}
 }
 
@@ -50,19 +60,43 @@ func (s *HistoryStorage) LoadURLTestHistory(tag string) *adapter.URLTestHistory 
 	}
 	s.access.RLock()
 	defer s.access.RUnlock()
-	return s.delayHistory[tag]
+	entry := s.results[tag]
+	if entry.result == nil || entry.invalidated || entry.result.Error != nil {
+		return nil
+	}
+	return &entry.result.URLTestHistory
 }
 
 func (s *HistoryStorage) DeleteURLTestHistory(tag string) {
 	s.access.Lock()
-	delete(s.delayHistory, tag)
+	if entry, exists := s.results[tag]; exists {
+		entry.invalidated = true
+		s.results[tag] = entry
+	}
 	s.notifyUpdated()
 	s.access.Unlock()
 }
 
-func (s *HistoryStorage) StoreURLTestHistory(tag string, history *adapter.URLTestHistory) {
+func (s *HistoryStorage) LoadURLTestResult(tag string) *Result {
+	if s == nil {
+		return nil
+	}
+	s.access.RLock()
+	defer s.access.RUnlock()
+	return s.results[tag].result
+}
+
+func (s *HistoryStorage) StoreURLTestResult(tag string, delay uint16, err error) {
 	s.access.Lock()
-	s.delayHistory[tag] = history
+	s.results[tag] = historyEntry{
+		result: &Result{
+			URLTestHistory: adapter.URLTestHistory{
+				Time:  time.Now(),
+				Delay: delay,
+			},
+			Error: err,
+		},
+	}
 	s.notifyUpdated()
 	s.access.Unlock()
 }

@@ -128,6 +128,7 @@ message GroupItem {
   string type = 2;
   int64 urlTestTime = 3;
   int32 urlTestDelay = 4;
+  URLTestResult urlTestResult = 5;
 }
 
 message URLTestRequest {
@@ -805,4 +806,11 @@ message Notification {
 message NotificationCancel {
   string identifier = 1;
   int32 typeID = 2;
+}
+
+message URLTestResult {
+  int64 time = 1;
+  int32 delay = 2;
+  bool success = 3;
+  string error = 4;
 }

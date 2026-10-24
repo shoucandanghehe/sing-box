@@ -62,10 +62,18 @@ type OutboundGroupIterator interface {
 }
 
 type OutboundGroupItem struct {
-	Tag          string
-	Type         string
-	URLTestTime  int64
-	URLTestDelay int32
+	Tag           string
+	Type          string
+	URLTestTime   int64
+	URLTestDelay  int32
+	URLTestResult *URLTestResult
+}
+
+type URLTestResult struct {
+	Time    int64 // Unix seconds at completion.
+	Delay   int32 // Milliseconds; meaningful only when Success is true.
+	Success bool
+	Error   string
 }
 
 type OutboundGroupItemIterator interface {
@@ -344,12 +352,7 @@ func outboundGroupIteratorFromGRPC(groups *daemon.Groups) OutboundGroupIterator 
 			IsExpand:   g.IsExpand,
 		}
 		for _, item := range g.Items {
-			libboxGroup.itemList = append(libboxGroup.itemList, &OutboundGroupItem{
-				Tag:          item.Tag,
-				Type:         item.Type,
-				URLTestTime:  item.UrlTestTime,
-				URLTestDelay: item.UrlTestDelay,
-			})
+			libboxGroup.itemList = append(libboxGroup.itemList, outboundGroupItemFromGRPC(item))
 		}
 		libboxGroups = append(libboxGroups, libboxGroup)
 	}
@@ -362,14 +365,27 @@ func outboundGroupItemListFromGRPC(list *daemon.OutboundList) OutboundGroupItemI
 	}
 	var items []*OutboundGroupItem
 	for _, ob := range list.Outbounds {
-		items = append(items, &OutboundGroupItem{
-			Tag:          ob.Tag,
-			Type:         ob.Type,
-			URLTestTime:  ob.UrlTestTime,
-			URLTestDelay: ob.UrlTestDelay,
-		})
+		items = append(items, outboundGroupItemFromGRPC(ob))
 	}
 	return newIterator(items)
+}
+
+func outboundGroupItemFromGRPC(item *daemon.GroupItem) *OutboundGroupItem {
+	result := &OutboundGroupItem{
+		Tag:          item.Tag,
+		Type:         item.Type,
+		URLTestTime:  item.UrlTestTime,
+		URLTestDelay: item.UrlTestDelay,
+	}
+	if testResult := item.UrlTestResult; testResult != nil {
+		result.URLTestResult = &URLTestResult{
+			Time:    testResult.Time,
+			Delay:   testResult.Delay,
+			Success: testResult.Success,
+			Error:   testResult.Error,
+		}
+	}
+	return result
 }
 
 func connectionFromGRPC(conn *daemon.Connection) Connection {
